@@ -10,6 +10,11 @@ The main purpose of this repository is to show a good end-to-end project setup a
 I will try to keep this as up-to-date as possible, but community contributions and recommendations for improvements are encouraged and will be most welcome. 
 
 
+# Updates
+- 2018-11-01: Update to Mongoose v5 (MongoDB v4)
+  - [https://mongoosejs.com/docs/transactions.html](https://mongoosejs.com/docs/transactions.html)
+  - [http://thecodebarbarian.com/a-node-js-perspective-on-mongodb-4-transactions.html](http://thecodebarbarian.com/a-node-js-perspective-on-mongodb-4-transactions.html)
+
 # Pre-reqs
 To build and run this app locally you will need a few things:
 - Install [Node.js](https://nodejs.org/en/)

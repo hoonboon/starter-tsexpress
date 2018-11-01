@@ -5,16 +5,15 @@ import bodyParser from "body-parser";
 import logger from "./util/logger";
 import lusca from "lusca";
 import dotenv from "dotenv";
-import mongo from "connect-mongo";
+import connect from "connect-mongodb-session";
 import flash from "express-flash";
 import path from "path";
 import mongoose from "mongoose";
 import passport from "passport";
 import expressValidator from "express-validator";
-import bluebird from "bluebird";
 import { MONGODB_URI, SESSION_SECRET } from "./util/secrets";
 
-const MongoStore = mongo(session);
+const MongoDbStore = connect(session);
 
 // Load environment variables from .env file, where API keys and passwords are configured
 dotenv.config({ path: ".env.example" });
@@ -34,12 +33,29 @@ const app = express();
 
 // Connect to MongoDB
 const mongoUrl = MONGODB_URI;
-(<any>mongoose).Promise = bluebird;
-mongoose.connect(mongoUrl, {useMongoClient: true}).then(
-  () => { /** ready to use. The `mongoose.connect()` promise resolves to undefined. */ },
+
+const mongoConnectOpts = {
+  useNewUrlParser: true,
+  useCreateIndex: true,
+  autoReconnect: true,
+  poolSize: 20,
+};
+
+mongoose.connect(mongoUrl, mongoConnectOpts).then(
+  () => {
+    /** ready to use. The `mongoose.connect()` promise resolves to undefined. */
+    console.log("MongoDB connected.");
+  },
 ).catch(err => {
   console.log("MongoDB connection error. Please make sure MongoDB is running. " + err);
   // process.exit();
+});
+
+// Session store
+const sessionStore = new MongoDbStore({
+  uri: mongoUrl,
+  collection: "sessions",
+  connectionOptions: mongoConnectOpts
 });
 
 // Express configuration
@@ -54,10 +70,7 @@ app.use(session({
   resave: true,
   saveUninitialized: true,
   secret: SESSION_SECRET,
-  store: new MongoStore({
-    url: mongoUrl,
-    autoReconnect: true
-  })
+  store: sessionStore
 }));
 app.use(passport.initialize());
 app.use(passport.session());
