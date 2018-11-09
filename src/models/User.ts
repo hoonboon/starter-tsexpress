@@ -1,17 +1,18 @@
 import bcrypt from "bcrypt-nodejs";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import { ReturnObject } from "../util/common";
 
 const uuid = require("uuid/v4");
 
-export type UserModel = mongoose.Document & {
-  email: string,
-  password: string,
-  passwordResetToken: string,
-  passwordResetExpires: Date,
+export interface IUser extends mongoose.Document {
+  email: string;
+  password: string;
+  passwordResetToken: string;
+  passwordResetExpires: Date;
 
-  facebook: string,
-  tokens: AuthToken[],
+  facebook: string;
+  tokens: AuthToken[];
 
   profile: {
     name: string,
@@ -19,11 +20,12 @@ export type UserModel = mongoose.Document & {
     location: string,
     website: string,
     picture: string
-  },
+  };
+  creditBalance: mongoose.Types.Decimal128;
 
-  comparePassword: comparePasswordFunction,
-  gravatar: (size: number) => string
-};
+  comparePassword: comparePasswordFunction;
+  gravatar: (size: number) => string;
+}
 
 type comparePasswordFunction = (candidatePassword: string, cb: (err: any, isMatch: any) => {}) => void;
 
@@ -32,7 +34,7 @@ export type AuthToken = {
   kind: string
 };
 
-const userSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   _id: { type: String, default: uuid },
   email: { type: String, unique: true },
   password: String,
@@ -50,15 +52,20 @@ const userSchema = new mongoose.Schema({
     location: String,
     website: String,
     picture: String
-  }
+  },
+
+  creditBalance: {
+    type: mongoose.Schema.Types.Decimal128,
+    default: mongoose.Types.Decimal128.fromString("0.00"),
+  },
 }, { timestamps: true });
 
 
 /**
  * Password hash middleware.
  */
-userSchema.pre("save", function save(next) {
-  const user = this;
+UserSchema.pre("save", function save(next) {
+  const user = <IUser>this;
   if (!user.isModified("password")) { return next(); }
   bcrypt.genSalt(10, (err, salt) => {
     if (err) { return next(err); }
@@ -71,17 +78,18 @@ userSchema.pre("save", function save(next) {
 });
 
 const comparePassword: comparePasswordFunction = function (candidatePassword, cb) {
-  bcrypt.compare(candidatePassword, this.password, (err: mongoose.Error, isMatch: boolean) => {
+  const user = <IUser>this;
+  bcrypt.compare(candidatePassword, user.password, (err: mongoose.Error, isMatch: boolean) => {
     cb(err, isMatch);
   });
 };
 
-userSchema.methods.comparePassword = comparePassword;
+UserSchema.methods.comparePassword = comparePassword;
 
 /**
  * Helper method for getting user's gravatar.
  */
-userSchema.methods.gravatar = function (size: number) {
+UserSchema.methods.gravatar = function (size: number) {
   if (!size) {
     size = 200;
   }
@@ -93,5 +101,44 @@ userSchema.methods.gravatar = function (size: number) {
 };
 
 // export const User: UserType = mongoose.model<UserType>('User', userSchema);
-const User = mongoose.model("User", userSchema);
-export default User;
+const UserModel: mongoose.Model<IUser> = mongoose.model<IUser>("User", UserSchema);
+export default UserModel;
+
+
+export async function transferCredit(from: string, to: string, amount: string): Promise<ReturnObject> {
+  let error: Error;
+  const mongodbSession = await mongoose.startSession();
+  mongodbSession.startTransaction();
+  try {
+    const opts = { session: mongodbSession, new: true };
+
+    let transferFrom = await UserModel.findById(from, {}, opts);
+    if (!transferFrom) {
+      error = new Error("Transfer Source [" + from + "] is invalid.");
+      throw error;
+    }
+
+    transferFrom = await UserModel.findOneAndUpdate({ _id: from }, { $inc: { creditBalance: "-" + amount } }, opts);
+    if (parseFloat(transferFrom.creditBalance.toString()) < 0) {
+      error = new Error("Insufficient credits: " + (parseFloat(transferFrom.creditBalance.toString()) + parseFloat(amount)));
+      throw error;
+    }
+
+    let transferTo = await UserModel.findById(to, {}, opts);
+    if (!transferTo) {
+      error = new Error("Transfer Target [" + to + "] is invalid.");
+      throw error;
+    }
+
+    transferTo = await UserModel.findOneAndUpdate({ _id: to }, { $inc: { creditBalance: amount } }, opts);
+
+    await mongodbSession.commitTransaction();
+    mongodbSession.endSession();
+
+    return { error: undefined, result: {from: transferFrom, to: transferTo } };
+  } catch {
+    await mongodbSession.abortTransaction();
+    mongodbSession.endSession();
+    return { error: error };
+  }
+}
