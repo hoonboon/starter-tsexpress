@@ -1,10 +1,11 @@
 import bcrypt from "bcrypt-nodejs";
 import crypto from "crypto";
-import { Document, Schema, Error as MongooseError, model, Model } from "mongoose";
+import mongoose from "mongoose";
+import { ReturnObject } from "../util/common";
 
 const uuid = require("uuid/v4");
 
-export interface IUser extends Document {
+export interface IUser extends mongoose.Document {
   email: string;
   password: string;
   passwordResetToken: string;
@@ -20,6 +21,7 @@ export interface IUser extends Document {
     website: string,
     picture: string
   };
+  creditBalance: mongoose.Types.Decimal128;
 
   comparePassword: comparePasswordFunction;
   gravatar: (size: number) => string;
@@ -32,7 +34,7 @@ export type AuthToken = {
   kind: string
 };
 
-const UserSchema = new Schema({
+const UserSchema = new mongoose.Schema({
   _id: { type: String, default: uuid },
   email: { type: String, unique: true },
   password: String,
@@ -50,7 +52,12 @@ const UserSchema = new Schema({
     location: String,
     website: String,
     picture: String
-  }
+  },
+
+  creditBalance: {
+    type: mongoose.Schema.Types.Decimal128,
+    default: mongoose.Types.Decimal128.fromString("0.00"),
+  },
 }, { timestamps: true });
 
 
@@ -62,7 +69,7 @@ UserSchema.pre("save", function save(next) {
   if (!user.isModified("password")) { return next(); }
   bcrypt.genSalt(10, (err, salt) => {
     if (err) { return next(err); }
-    bcrypt.hash(user.password, salt, undefined, (err: MongooseError, hash) => {
+    bcrypt.hash(user.password, salt, undefined, (err: mongoose.Error, hash) => {
       if (err) { return next(err); }
       user.password = hash;
       next();
@@ -72,7 +79,7 @@ UserSchema.pre("save", function save(next) {
 
 const comparePassword: comparePasswordFunction = function (candidatePassword, cb) {
   const user = <IUser>this;
-  bcrypt.compare(candidatePassword, user.password, (err: MongooseError, isMatch: boolean) => {
+  bcrypt.compare(candidatePassword, user.password, (err: mongoose.Error, isMatch: boolean) => {
     cb(err, isMatch);
   });
 };
@@ -94,5 +101,44 @@ UserSchema.methods.gravatar = function (size: number) {
 };
 
 // export const User: UserType = mongoose.model<UserType>('User', userSchema);
-const UserModel: Model<IUser> = model<IUser>("User", UserSchema);
+const UserModel: mongoose.Model<IUser> = mongoose.model<IUser>("User", UserSchema);
 export default UserModel;
+
+
+export async function transferCredit(from: string, to: string, amount: string): Promise<ReturnObject> {
+  let error: Error;
+  const mongodbSession = await mongoose.startSession();
+  mongodbSession.startTransaction();
+  try {
+    const opts = { session: mongodbSession, new: true };
+
+    let transferFrom = await UserModel.findById(from, {}, opts);
+    if (!transferFrom) {
+      error = new Error("Transfer Source [" + from + "] is invalid.");
+      throw error;
+    }
+
+    transferFrom = await UserModel.findOneAndUpdate({ _id: from }, { $inc: { creditBalance: "-" + amount } }, opts);
+    if (parseFloat(transferFrom.creditBalance.toString()) < 0) {
+      error = new Error("Insufficient credits: " + (parseFloat(transferFrom.creditBalance.toString()) + parseFloat(amount)));
+      throw error;
+    }
+
+    let transferTo = await UserModel.findById(to, {}, opts);
+    if (!transferTo) {
+      error = new Error("Transfer Target [" + to + "] is invalid.");
+      throw error;
+    }
+
+    transferTo = await UserModel.findOneAndUpdate({ _id: to }, { $inc: { creditBalance: amount } }, opts);
+
+    await mongodbSession.commitTransaction();
+    mongodbSession.endSession();
+
+    return { error: undefined, result: {from: transferFrom, to: transferTo } };
+  } catch {
+    await mongodbSession.abortTransaction();
+    mongodbSession.endSession();
+    return { error: error };
+  }
+}

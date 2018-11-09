@@ -2,11 +2,14 @@ import async from "async";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import passport from "passport";
-import { default as UserModel, IUser, AuthToken } from "../models/User";
 import { Request, Response, NextFunction } from "express";
 import { IVerifyOptions } from "passport-local";
 import { WriteError } from "mongodb";
 const request = require("express-validator");
+
+// import { default as UserModel, IUser, AuthToken } from "../models/User";
+import { default as UserModel, IUser, AuthToken, transferCredit } from "../models/User";
+import * as selectOption from "../util/selectOption";
 
 
 /**
@@ -93,7 +96,8 @@ export let postSignup = (req: Request, res: Response, next: NextFunction) => {
 
   const user = new UserModel({
     email: req.body.email,
-    password: req.body.password
+    password: req.body.password,
+    creditBalance: 10 // default credit balance for new sign up
   });
 
   UserModel.findOne({ email: req.body.email }, (err, existingUser) => {
@@ -118,9 +122,12 @@ export let postSignup = (req: Request, res: Response, next: NextFunction) => {
  * GET /account
  * Profile page.
  */
-export let getAccount = (req: Request, res: Response) => {
+export let getAccount = async (req: Request, res: Response) => {
+  const creditTransferTargetOptions = await selectOption.OPTIONS_CREDIT_TRANSFER_TARGET(req.user.id);
+  selectOption.markSelectedOptions(req.body.transferTo, creditTransferTargetOptions);
   res.render("account/profile", {
-    title: "Account Management"
+    title: "Account Management",
+    creditTransferTargetOptions: creditTransferTargetOptions,
   });
 };
 
@@ -377,4 +384,32 @@ export let postForgot = (req: Request, res: Response, next: NextFunction) => {
     if (err) { return next(err); }
     res.redirect("/forgot");
   });
+};
+
+
+/**
+ * POST /account/credit/transfer
+ * Create a random token, then the send user an email with a reset link.
+ */
+export let postTransferCredit = async (req: Request, res: Response, next: NextFunction) => {
+  req.assert("transferTo", "Please select a target user of credit transfer.").notEmpty();
+  req.assert("transferAmount", "Please enter a credit transfer amount.").notEmpty();
+  req.assert("transferAmount", "Please enter a valid credit transfer amount.").isDecimal();
+
+  const errors = req.validationErrors();
+
+  if (errors) {
+    req.flash("errors", errors);
+    return res.redirect("/account");
+  }
+
+  const results = await transferCredit(req.user._id, req.body.transferTo, req.body.transferAmount);
+  if (results.error) {
+    req.flash("errors", { msg: results.error.message });
+    return res.redirect("/account");
+  }
+
+  req.flash("success", { msg: "Credit Transfer has been completed." });
+  res.redirect("/account");
+
 };

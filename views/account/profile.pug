@@ -85,3 +85,32 @@ block content
         else
           p: a(href='/auth/facebook') Link your Facebook account
 
+  .page-header
+    h3 Credit
+
+  form.form-horizontal(action='/account/credit/transfer', method='POST')
+    input(type='hidden', name='_csrf', value=_csrf)
+    .form-group
+      label.col-sm-3.control-label Current Balance
+      .col-sm-7
+        .form-control-static #{user.creditBalance}
+    .form-group
+      label.col-sm-3.control-label(for='transferTo') Transfer To
+      .col-sm-7
+        select.form-control(name='transferTo', id='transferTo', placeholder='Transfer To')
+          for option in creditTransferTargetOptions
+            option(
+              label=option.label, 
+              value=option.value, 
+              selected=(option.isSelected ? 'selected' : false)
+            ) #{option.label}
+    .form-group
+      label.col-sm-3.control-label(for='transferAmount') Transfer Amount
+      .col-sm-7
+        input.form-control(type='number', min='0.01', step='0.01', name='transferAmount', id='transferAmount', required)
+    .form-group
+      .col-sm-offset-3.col-sm-4
+        button.btn.btn.btn-primary(type='submit')
+          i.fa.fa-angle-right
+          | Transfer Credit
+
