@@ -10,6 +10,7 @@ const request = require("express-validator");
 // import { default as UserModel, IUser, AuthToken } from "../models/User";
 import { default as UserModel, IUser, AuthToken, transferCredit } from "../models/User";
 import * as selectOption from "../util/selectOption";
+import { PdfGenerator } from "../util/pdfGenerator";
 
 
 /**
@@ -411,5 +412,19 @@ export let postTransferCredit = async (req: Request, res: Response, next: NextFu
 
   req.flash("success", { msg: "Credit Transfer has been completed." });
   res.redirect("/account");
+
+};
+
+export let postDownloadInvoice = async (req: Request, res: Response, next: NextFunction) => {
+  req.assert("invoiceNo", "Please enter a valid Invoice No.").notEmpty();
+
+  const errors = req.validationErrors();
+
+  if (errors) {
+    req.flash("errors", errors);
+    return res.redirect("/account");
+  }
+
+  await PdfGenerator.sendPdf(res, "http://localhost:3000");
 
 };

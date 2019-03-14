@@ -2,7 +2,6 @@ import express from "express";
 import compression from "compression";  // compresses requests
 import session from "express-session";
 import bodyParser from "body-parser";
-import logger from "./util/logger";
 import lusca from "lusca";
 import dotenv from "dotenv";
 import connect from "connect-mongodb-session";
@@ -11,12 +10,16 @@ import path from "path";
 import mongoose from "mongoose";
 import passport from "passport";
 import expressValidator from "express-validator";
-import { MONGODB_URI, SESSION_SECRET } from "./util/secrets";
 
 const MongoDbStore = connect(session);
 
 // Load environment variables from .env file, where API keys and passwords are configured
-dotenv.config({ path: ".env.example" });
+dotenv.config({ path: ".env" });
+
+import { Logger } from "./util/logger";
+const logger = new Logger("app");
+
+import { MONGODB_URI, SESSION_SECRET } from "./util/secrets";
 
 // Controllers (route handlers)
 import * as homeController from "./controllers/home";
@@ -44,10 +47,10 @@ const mongoConnectOpts = {
 mongoose.connect(mongoUrl, mongoConnectOpts).then(
   () => {
     /** ready to use. The `mongoose.connect()` promise resolves to undefined. */
-    console.log("MongoDB connected.");
+    logger.info("MongoDB connected.");
   },
 ).catch(err => {
-  console.log("MongoDB connection error. Please make sure MongoDB is running. " + err);
+  logger.error("MongoDB connection error. Please make sure MongoDB is running. " + err);
   // process.exit();
 });
 
@@ -121,6 +124,7 @@ app.post("/account/password", passportConfig.isAuthenticated, userController.pos
 app.post("/account/delete", passportConfig.isAuthenticated, userController.postDeleteAccount);
 app.get("/account/unlink/:provider", passportConfig.isAuthenticated, userController.getOauthUnlink);
 app.post("/account/credit/transfer", passportConfig.isAuthenticated, userController.postTransferCredit);
+app.post("/account/invoice/download", passportConfig.isAuthenticated, userController.postDownloadInvoice);
 
 /**
  * API examples routes.

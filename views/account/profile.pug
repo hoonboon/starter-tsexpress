@@ -114,3 +114,17 @@ block content
           i.fa.fa-angle-right
           | Transfer Credit
 
+  .page-header
+    h3 Invoice
+
+  form.form-horizontal(action='/account/invoice/download', method='POST')
+    input(type='hidden', name='_csrf', value=_csrf)
+    .form-group
+      label.col-sm-3.control-label(for='invoiceNo') Invoice No
+      .col-sm-7
+        input.form-control(type='text', name='invoiceNo', id='invoiceNo', required)
+    .form-group
+      .col-sm-offset-3.col-sm-4
+        button.btn.btn.btn-primary(type='submit')
+          i.fa.fa-angle-right
+          | Download
