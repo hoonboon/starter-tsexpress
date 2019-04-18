@@ -1,0 +1,38 @@
+// Use !{var} to use unescaped content
+style(type="text/css") !{compiledStyle}
+
+h1.title-center Invoice
+
+p.invoice-header Invoice No: #{invoice.invoiceNo}
+
+p.invoice-header Invoice Date: #{invoice.invoiceDate}
+
+p.invoice-header Currency: #{invoice.currency}
+
+h3 Bill To: !{invoice.billTo.name}
+
+table.invoice-detail
+  thead
+    tr
+      th No.
+      th Item Code
+      th Item Description
+      th Unit Price
+      th Qty
+      th Total Price
+  tbody
+    each line in invoice.lines
+      tr
+        td(align="center") #{line.sn}
+        td !{line.itemCode}
+        td !{line.itemDesc}
+        td(align="right") #{line.unitPriceDisplay}
+        td(align="right") #{line.qtyDisplay}
+        td(align="right") #{line.totalPriceDisplay}
+
+div.table-footer Amount Due: #{invoice.amountDueDisplay}
+div.table-footer Shipping Fees: #{invoice.shippingFeesDisplay}
+div.table-footer Total Amount Due: #{invoice.totalAmountDueDisplay}
+
+h3.comments-title Remarks
+p !{invoice.remarks}

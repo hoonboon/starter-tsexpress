@@ -1,16 +1,23 @@
 import async from "async";
 import crypto from "crypto";
+import moment from "moment";
 import nodemailer from "nodemailer";
 import passport from "passport";
 import { Request, Response, NextFunction } from "express";
 import { IVerifyOptions } from "passport-local";
 import { WriteError } from "mongodb";
+import * as pug from "pug";
 const request = require("express-validator");
 
 // import { default as UserModel, IUser, AuthToken } from "../models/User";
 import { default as UserModel, IUser, AuthToken, transferCredit } from "../models/User";
 import * as selectOption from "../util/selectOption";
 import { PdfGenerator } from "../util/pdfGenerator";
+import { OPTIONS_INVOICE, Invoice, InvoiceLine } from "../pdfTemplate/invoice";
+import { Logger } from "../util/logger";
+
+
+const logger = new Logger("controller.user");
 
 
 /**
@@ -425,6 +432,49 @@ export let postDownloadInvoice = async (req: Request, res: Response, next: NextF
     return res.redirect("/account");
   }
 
-  await PdfGenerator.sendPdf(res, "http://localhost:3000");
+  // await PdfGenerator.sendPdfGivenPageUrl(res, "http://localhost:3000");
+
+  const invoiceData = new Invoice ({
+    invoiceNo: req.body.invoiceNo,
+    invoiceDate: moment().format("YYYY-MM-DD"),
+    billTo: { name: "Some Customer 1"},
+    currency: "MYR",
+    amountDue: 26521.5,
+    shippingFees: 25,
+    totalAmountDue: 26546.5,
+    remarks: "Deliver after 3pm.",
+    lines: [
+        new InvoiceLine ({
+          sn: 1,
+          itemCode: "2001",
+          itemDesc: "Item 1 Description",
+          unitPrice: 900,
+          qty: 1,
+          totalPrice: 900,
+        }),
+        new InvoiceLine ({
+          sn: 2,
+          itemCode: "2002",
+          itemDesc: "Item 2 Description",
+          unitPrice: 400,
+          qty: 3,
+          totalPrice: 1200,
+        }),
+        new InvoiceLine ({
+          sn: 3,
+          itemCode: "2003",
+          itemDesc: "Item 3 Description",
+          unitPrice: 24.3,
+          qty: 1005,
+          totalPrice: 24421.5,
+        }),
+    ]
+  });
+
+  const localsObject: pug.LocalsObject = {
+    invoice: invoiceData,
+  };
+
+  await PdfGenerator.sendPdfGivenTemplatePath(res, OPTIONS_INVOICE, localsObject);
 
 };

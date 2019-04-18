@@ -1,0 +1,41 @@
+body {
+    padding: 20px;
+    font-family: Halvetica, sans-serif;
+  
+    .title-center {
+      margin-bottom: 4px;
+      text-align: center;
+    }
+  
+    .invoice-header {
+      font-size: 16px;
+      text-align: right;
+    }
+  
+    .comments-title {
+      margin-bottom: 4px;
+    }
+  
+    table.invoice-detail {
+      width: 100%;
+      border-top: 1px solid black;
+      border-bottom: 1px solid black;
+      border-left: 1px solid black;
+      border-right: 1px solid black;
+    }
+  
+    table, tr, th, td {
+      padding: 4px;
+    }
+  
+    th {
+      border-bottom: 1px solid black;
+      border-collapse: collapse;
+    }
+  
+    .table-footer {
+      text-align: right;
+      margin: 10px;
+    }
+  }
+  
