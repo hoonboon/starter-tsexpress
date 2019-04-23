@@ -2,7 +2,7 @@ import bcrypt from "bcrypt-nodejs";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import { ReturnObject } from "../util/common";
-import { getNextSeqNo } from "../util/seqNoGenerator";
+import { getNextSeqNo, SEQKEY_TRANSFER_TO_SEQ, SEQKEY_TRANSFER_FROM_SEQ } from "../util/seqNoGenerator";
 import { Logger } from "../util/logger";
 
 const logger = new Logger("models.User");
@@ -128,7 +128,7 @@ export async function transferCredit(from: string, to: string, amount: string): 
       throw error;
     }
 
-    const seq01 = await getNextSeqNo("transferFromSeq", opts);
+    const seq01 = await getNextSeqNo(SEQKEY_TRANSFER_FROM_SEQ, opts);
     logger.debug("Seq 1: " + seq01);
 
     let transferTo = await UserModel.findById(to, {}, opts);
@@ -139,7 +139,7 @@ export async function transferCredit(from: string, to: string, amount: string): 
 
     transferTo = await UserModel.findOneAndUpdate({ _id: to }, { $inc: { creditBalance: amount } }, opts);
 
-    const seq02 = await getNextSeqNo("transferToSeq", opts, 3);
+    const seq02 = await getNextSeqNo(SEQKEY_TRANSFER_TO_SEQ, opts, 3);
     logger.debug("Seq 2: " + seq02);
 
     await mongodbSession.commitTransaction();
