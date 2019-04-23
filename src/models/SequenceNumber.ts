@@ -15,7 +15,7 @@ const SequenceNumberSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
-SequenceNumberSchema.index({ "seqKey": 1, "seqNo": 1 }, { "unique": true });
+SequenceNumberSchema.index({ "seqKey": 1 }, { "unique": true });
 
 const SequenceNumberModel = mongoose.model<ISequenceNumber>("SequenceNumber", SequenceNumberSchema);
 export default SequenceNumberModel;
