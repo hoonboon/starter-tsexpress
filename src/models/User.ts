@@ -2,6 +2,10 @@ import bcrypt from "bcrypt-nodejs";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import { ReturnObject } from "../util/common";
+import { getNextSeqNo } from "../util/seqNoGenerator";
+import { Logger } from "../util/logger";
+
+const logger = new Logger("models.User");
 
 const uuid = require("uuid/v4");
 
@@ -124,6 +128,9 @@ export async function transferCredit(from: string, to: string, amount: string): 
       throw error;
     }
 
+    const seq01 = await getNextSeqNo("transferFromSeq", opts);
+    logger.debug("Seq 1: " + seq01);
+
     let transferTo = await UserModel.findById(to, {}, opts);
     if (!transferTo) {
       error = new Error("Transfer Target [" + to + "] is invalid.");
@@ -131,6 +138,9 @@ export async function transferCredit(from: string, to: string, amount: string): 
     }
 
     transferTo = await UserModel.findOneAndUpdate({ _id: to }, { $inc: { creditBalance: amount } }, opts);
+
+    const seq02 = await getNextSeqNo("transferToSeq", opts, 3);
+    logger.debug("Seq 2: " + seq02);
 
     await mongodbSession.commitTransaction();
     mongodbSession.endSession();
